@@ -1,39 +1,41 @@
 /**
- *@NApiVersion 2.x
+ *@NApiVersion 2.0
  *@NScriptType Restlet
  */
-define([], function() {
+define(['N/search'], 
+
+function(search) {
 
     function _get(context) {
 
         try {
 
             var filtros = { 
-                subsidiaria: 1,
+                subsidiaria: 5,
                 departamento: 1,
-                clase: 6,
-                ubicacion: 1,
+                clase: 1,
+                ubicacion: 3,
                 anio: 172,
-                cuenta: 365
+                cuenta: 58
             };
             
             // Obtener presupesuto mensual.
             var anual = obtenerPresupuestoAnual(filtros);
-            var importe_anual = anual.importe;
+            var importe_anual = parseInt(anual.importe);
             var importe_mensual = importe_anual / 12;
 
             // Obtener presupuesto acumulado.
             var acumulado = obtenerPresupuestoAcumulado(filtros);
-            importe_acumulado = acumulado.importe;
+            var importe_acumulado = acumulado.importe != "" ? acumulado.importe : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
-            log.audit('GET', result);
+            log.debug('GET', result);
 
             return result;
             
         } catch (error) {
-            log.audit({ title: 'GET', details: JSON.stringify(error) });
-            return error;
+            log.error({ title: 'GET', details: JSON.stringify(error) });
+            return JSON.stringify(error);
         }
         
     }
@@ -100,11 +102,11 @@ define([], function() {
             if (results.length > 0) {
                 return results[0];
             } else {
-                throw new Error("No se encontraron resultados para presupuesto mensual")
+                throw new Error("No se encontraron resultados para presupuesto anual")
             }
             
         } catch (error) {
-            log.error({ title: 'obtenerPresupuestoMensual', details: JSON.stringify(error) });
+            log.error({ title: 'obtenerPresupuestoAnual', details: JSON.stringify(error) });
             throw new Error(error);
         }
     }
@@ -128,7 +130,7 @@ define([], function() {
                 "AND", 
                 ["location","anyof",filtros.ubicacion], 
                 "AND", 
-                ["account","anyof",filtros.cuenta], 
+                ["account","anyof","58"], 
                 "AND", 
                 ["mainline","is","F"], 
                 "AND", 
@@ -140,7 +142,7 @@ define([], function() {
                 filters: filters,
                 columns:
                 [
-                    search.createColumn({ name: "amount", summary: "SUM", label: "importe" })
+                    search.createColumn({ name: "estimatedamount", summary: "SUM", label: "importe" })
                 ] 
             }
 
@@ -156,33 +158,5 @@ define([], function() {
             throw new Error(error);
         }
     }
-
-    /**
-     * @desc Obtener los datos de la busqueda
-     * @function getDataSearch
-     * @param String createSearch
-     * @return Array searchResults
-     */
-    function getDataSearch(createSearch) {
-        var searchResults = [];
-  
-        var saveSearch = search.create(createSearch);
-  
-        var searchResultCount = saveSearch.runPaged().count;
-        if (searchResultCount == 0) {
-            log.audit({ title: 'getDataSearch - Excepcion', details: 'Dato no Encontrado - Tabla: ' + createSearch.type });
-            return searchResults;
-        }
-  
-        saveSearch.run().each(function(item) {
-            var objectCompiled = { };
-            for (var i = 0; i < item.columns.length; i++) {
-                objectCompiled[item.columns[i].label] = item.getValue(item.columns[i]);
-            }
-            searchResults.push(objectCompiled);
-            return true;
-        });
-  
-        return searchResults;
-    }
+    
 });
