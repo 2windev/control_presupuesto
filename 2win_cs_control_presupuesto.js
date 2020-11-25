@@ -22,6 +22,7 @@ function(url, https, dialog, search) {
 
     function fieldChanged(context) {
 
+        /*
         var currentRecord = context.currentRecord;
         
         var sublistName = context.sublistId;
@@ -45,8 +46,6 @@ function(url, https, dialog, search) {
             log.debug('fieldChanged', 'Presupuesto Disponible: ' + presupuesto_disponible);
 
             if (presupuesto_disponible == null || presupuesto_disponible == "") {
-            
-                log.debug('fieldChanged', 'Cuenta: ' + currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: 'account' }));
 
                 var presupuesto = obtenerPresupuestos(currentRecord, sublistName);
 
@@ -65,6 +64,7 @@ function(url, https, dialog, search) {
                 currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto_acumulado - total_estimado });
             }
         }
+        */
     }
 
     function postSourcing(context) {
@@ -91,11 +91,34 @@ function(url, https, dialog, search) {
     }
 
     function validateInsert(context) {
-        
+
     }
 
     function validateLine(context) {
 
+        var currentRecord = context.currentRecord;
+        var sublistName = context.sublistId;
+
+        var monto_estimado = currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: 'estimatedamount' });
+        log.debug('validateLine', 'Monto Estimado: ' + monto_estimado);
+        
+        var total_estimado = obtenerTotalItems(currentRecord) + monto_estimado;
+        log.debug('validateLine', 'Total Estimado: ' + total_estimado);
+
+        var presupuesto = obtenerPresupuestos(currentRecord, sublistName);
+
+        if (presupuesto != null) {
+            
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: presupuesto.importe_mensual });
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: presupuesto.importe_acumulado });
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto.importe_acumulado - total_estimado });
+
+            return true;
+
+        } else {
+
+            return false;
+        }
     }
 
     function sublistChanged(context) {
@@ -106,12 +129,12 @@ function(url, https, dialog, search) {
         pageInit: pageInit,
         //saveRecord: saveRecord,
         //validateField: validateField,
-        fieldChanged: fieldChanged,
+        //fieldChanged: fieldChanged,
         //postSourcing: postSourcing,
         //lineInit: lineInit,
         validateDelete: validateDelete,
         //validateInsert: validateInsert,
-        //validateLine: validateLine,
+        validateLine: validateLine,
         //sublistChanged: sublistChanged
     }
 
@@ -142,11 +165,18 @@ function(url, https, dialog, search) {
 
     function obtenerPresupuestos(currentRecord, sublistName) {
 
+        // Obtener filtros para obtener el presupuesto.
         var filtros = obtenerFiltrosBusqueda(currentRecord, sublistName, parametros_control);
 
+        // Validar que parámetros de control presupuestario y filtros sean iguales para poder obtener el presupuesto.
         if (parametros_control.length != filtros.length) {
 
-            dialog.alert({ title: 'Atención!', message: 'Debe seleccionar los filtros obligatorios para consultar presupuesto' });
+            var obligatorios = "";
+            parametros_control.forEach(function(param) {
+                obligatorios += "- " + param.name + "<br>";
+            });
+
+            dialog.alert({ title: 'Atención', message: 'Debe seleccionar los filtros obligatorios para consultar presupuesto:<br><br>' + obligatorios });
             return null;
         }
 
@@ -155,6 +185,7 @@ function(url, https, dialog, search) {
             deploymentId: 'customdeploy_2win_rl_obt_presupuestos'
         });
         
+        // Agregar filtros obligatorios a la Url del Restlet
         filtros.forEach(function(filtro) {
             restletUrl += "&" + filtro.id + "=" + filtro.valor;
         });
@@ -181,12 +212,18 @@ function(url, https, dialog, search) {
 
         } else {
 
-            dialog.alert({ title: 'Error!', message: 'Ocurrión un error al obtener el presupuesto.' });
+            dialog.alert({ title: 'Error', message: 'Ocurrión un error al obtener el presupuesto.' });
             return null;
         }
         
     }
 
+    /**
+     * @description Función que permite crear filtros dinámicos para las búsquedas.
+     * @param {Record} currentRecord 
+     * @param {String} sublistName 
+     * @param {Array} parametros 
+     */
     function obtenerFiltrosBusqueda(currentRecord, sublistName, parametros) {
 
         var filtros = [];
@@ -197,13 +234,11 @@ function(url, https, dialog, search) {
             
             if (String(currentRecord.getValue(fieldId)).length > 0 && currentRecord.getText(fieldId) != undefined) {
 
-                log.debug('getValue', currentRecord.getValue(fieldId));
                 filtros.push({ id: fieldId, valor: currentRecord.getValue(fieldId) });
 
             } else if (String(currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId })).length > 0 
                         && currentRecord.getCurrentSublistText({ sublistId: sublistName, fieldId: fieldId }) != undefined) {
 
-                log.debug('getCurrentSublistValue', currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId }));
                 filtros.push({ id: fieldId, valor: currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId }) });
             }
         }

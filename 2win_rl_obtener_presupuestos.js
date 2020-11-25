@@ -10,22 +10,15 @@ function(search) {
 
         try {
 
-            var filtros = { 
-                subsidiaria: 5,
-                departamento: 1,
-                clase: 1,
-                ubicacion: 3,
-                anio: 172,
-                cuenta: 58
-            };
+            log.debug('GET', context);
             
             // Obtener presupesuto mensual.
-            var anual = obtenerPresupuestoAnual(filtros);
+            var anual = obtenerPresupuestoAnual(context);
             var importe_anual = parseInt(anual.importe);
             var importe_mensual = importe_anual / 12;
 
             // Obtener presupuesto acumulado.
-            var acumulado = obtenerPresupuestoAcumulado(filtros);
+            var acumulado = obtenerPresupuestoAcumulado(context);
             var importe_acumulado = acumulado.importe != "" ? acumulado.importe : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
@@ -35,7 +28,7 @@ function(search) {
             
         } catch (error) {
             log.error({ title: 'GET', details: JSON.stringify(error) });
-            return JSON.stringify(error);
+            return error;
         }
         
     }
@@ -59,23 +52,40 @@ function(search) {
         delete: _delete
     }
 
-    function obtenerPresupuestoAnual(filtros) {
+    function obtenerPresupuestoAnual(context) {
 
         try {
 
-            var filters = [
-                ["subsidiary","anyof",filtros.subsidiaria], 
-                "AND", 
-                ["department","anyof",filtros.departamento], 
-                "AND", 
-                ["class","anyof",filtros.clase], 
-                "AND", 
-                ["location","anyof",filtros.ubicacion],
-                "AND", 
-                ["year","anyof",filtros.anio],
-                "AND", 
-                ["account","anyof",filtros.cuenta]
+            var filters = [ 
+                ["year", "anyof", 172]
             ];
+
+            if (context.subsidiary) {
+                filters.push("AND");
+                filters.push(["subsidiary", "anyof", context.subsidiary]);
+            }
+
+            if (context.department) {
+                filters.push("AND");
+                filters.push(["department", "anyof", context.department]);
+            }
+
+            if (context.class) {
+                filters.push("AND");
+                filters.push(["class", "anyof", context.class]);
+            }
+
+            if (context.location) {
+                filters.push("AND");
+                filters.push(["location", "anyof", context.location]);
+            }
+
+            if (context.account) {
+                filters.push("AND");
+                filters.push(["account", "anyof", context.account]);
+            }
+
+            log.debug('obtenerPresupuestoAnual', filters);
     
             var tabItem = {
                 type: "budgetimport",
@@ -111,7 +121,7 @@ function(search) {
         }
     }
 
-    function obtenerPresupuestoAcumulado(filtros) {
+    function obtenerPresupuestoAcumulado(context) {
 
         try {
 
@@ -120,22 +130,39 @@ function(search) {
                 "AND", 
                 ["approvalstatus","anyof","2"], 
                 "AND", 
-                ["postingperiod","abs","187"], 
-                "AND", 
-                ["subsidiary","anyof",filtros.subsidiaria], 
-                "AND", 
-                ["department","anyof",filtros.departamento], 
-                "AND", 
-                ["class","anyof",filtros.clase], 
-                "AND", 
-                ["location","anyof",filtros.ubicacion], 
-                "AND", 
-                ["account","anyof","58"], 
+                ["postingperiod","abs","187"],
                 "AND", 
                 ["mainline","is","F"], 
                 "AND", 
                 ["itemtype","isnot","TaxItem"]
             ];
+
+            if (context.subsidiary) {
+                filters.push("AND");
+                filters.push(["subsidiary", "anyof", context.subsidiary]);
+            }
+
+            if (context.department) {
+                filters.push("AND");
+                filters.push(["department", "anyof", context.department]);
+            }
+
+            if (context.class) {
+                filters.push("AND");
+                filters.push(["class", "anyof", context.class]);
+            }
+
+            if (context.location) {
+                filters.push("AND");
+                filters.push(["location", "anyof", context.location]);
+            }
+
+            if (context.account) {
+                filters.push("AND");
+                filters.push(["account", "anyof", context.account]);
+            }
+
+            log.debug('obtenerPresupuestoAcumulado', filters);
     
             var tabItem = {
                 type: "purchaserequisition",
@@ -158,5 +185,34 @@ function(search) {
             throw new Error(error);
         }
     }
-    
+
+    /**
+     * @desc Obtener los datos de la busqueda
+     * @function getDataSearch
+     * @param String createSearch
+     * @return Array searchResults
+     */
+    function getDataSearch(createSearch) {
+        var searchResults = [];
+  
+        var saveSearch = search.create(createSearch);
+  
+        var searchResultCount = saveSearch.runPaged().count;
+        if (searchResultCount == 0) {
+            log.audit({ title: 'getDataSearch - Excepcion', details: 'Dato no Encontrado - Tabla: ' + createSearch.type });
+            return searchResults;
+        }
+  
+        saveSearch.run().each(function(item) {
+            var objectCompiled = { };
+            for (var i = 0; i < item.columns.length; i++) {
+                objectCompiled[item.columns[i].label] = item.getValue(item.columns[i]);
+            }
+            searchResults.push(objectCompiled);
+            return true;
+        });
+  
+        return searchResults;
+    }
+
 });
