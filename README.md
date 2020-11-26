@@ -25,8 +25,11 @@
 
     - Campos en **customrecord_2win_parametros_control_pre**
         - name
+        ⋅⋅⋅ Nombre del campo.
         - custrecord_2win_verificacion 
+        ⋅⋅⋅ Indentifica si se utiliza o no el campo.
         - custrecord_2win_campo
+        ⋅⋅⋅ Id del campo utilizado para rescatar el valor.
 
     - Nombre formulario preferido para **customrecord_2win_parametros_control_pre**
         - Custom Parámetros de Control Presupuestario Form

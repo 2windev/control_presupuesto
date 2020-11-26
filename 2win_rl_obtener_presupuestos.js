@@ -19,7 +19,7 @@ function(search) {
 
             // Obtener presupuesto acumulado.
             var acumulado = obtenerPresupuestoAcumulado(context);
-            var importe_acumulado = acumulado.importe != "" ? acumulado.importe : 0;
+            var importe_acumulado = acumulado.importe != "" ? parseInt(acumulado.importe) : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
             log.debug('GET', result);
