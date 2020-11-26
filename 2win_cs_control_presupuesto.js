@@ -77,7 +77,12 @@ function(url, https, dialog, search) {
 
     function validateDelete(context) {
 
+        log.debug('validateDelete', context);
+
         var currentRecord = context.currentRecord;
+        var sublistName = context.sublistId;
+        var sublistFieldName = context.fieldId;
+        log.debug('validateDelete', 'sublistName: ' + sublistName + ' - sublistFieldName: ' + sublistFieldName);
 
         var monto_estimado = currentRecord.getCurrentSublistValue({ sublistId: context.sublistId, fieldId: 'estimatedamount' });
         log.debug('validateDelete', 'Monto Estimado: ' + monto_estimado);
@@ -98,12 +103,18 @@ function(url, https, dialog, search) {
 
         var currentRecord = context.currentRecord;
         var sublistName = context.sublistId;
+        var sublistFieldName = context.fieldId;
+
+        log.debug('validateLine', 'sublistName: ' + sublistName + ' - sublistFieldName: ' + sublistFieldName);
 
         var monto_estimado = currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: 'estimatedamount' });
         log.debug('validateLine', 'Monto Estimado: ' + monto_estimado);
         
-        var total_estimado = obtenerTotalItems(currentRecord) + monto_estimado;
-        log.debug('validateLine', 'Total Estimado: ' + total_estimado);
+        //var total_estimado = obtenerTotalItems(currentRecord) + monto_estimado;
+        //log.debug('validateLine', 'Total Estimado: ' + total_estimado);
+
+        var total_estimado = currentRecord.getValue('estimatedtotal') + monto_estimado;
+        log.debug('fieldChanged', 'Total Estimado: ' + total_estimado);
 
         var presupuesto = obtenerPresupuestos(currentRecord, sublistName);
 
@@ -122,7 +133,7 @@ function(url, https, dialog, search) {
     }
 
     function sublistChanged(context) {
-        
+        log.debug('sublistChanged', context);
     }
 
     return {
@@ -135,7 +146,7 @@ function(url, https, dialog, search) {
         validateDelete: validateDelete,
         //validateInsert: validateInsert,
         validateLine: validateLine,
-        //sublistChanged: sublistChanged
+        sublistChanged: sublistChanged
     }
 
     function obtenerTotalItems(currentRecord) {
@@ -143,6 +154,7 @@ function(url, https, dialog, search) {
         var total = 0;
 
         var numItemsLines = currentRecord.getLineCount({ sublistId : 'item' });
+        log.debug('obtenerTotalItems', 'numItemsLines: ' + numItemsLines);
         if (numItemsLines > 0) {
             for (var i = 0; i < numItemsLines; i++) {
                 var currentRecordLine = currentRecord.selectLine({ sublistId: 'item', line: i });
@@ -152,6 +164,7 @@ function(url, https, dialog, search) {
         }
 
         var numExpensesLines = currentRecord.getLineCount({ sublistId : 'expense' });
+        log.debug('obtenerTotalItems', 'numExpensesLines: ' + numExpensesLines);
         if (numExpensesLines > 0) {
             for (var i = 0; i < numExpensesLines; i++) {
                 var currentRecordLine = currentRecord.selectLine({ sublistId: 'expense', line: i });
