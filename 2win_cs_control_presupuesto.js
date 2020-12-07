@@ -182,6 +182,7 @@ function(url, https, dialog, search) {
         var filtros = obtenerFiltrosBusqueda(currentRecord, sublistName, parametros_control);
 
         // Validar que parámetros de control presupuestario y filtros sean iguales para poder obtener el presupuesto.
+        /*
         if (parametros_control.length != filtros.length) {
 
             var obligatorios = "";
@@ -192,6 +193,7 @@ function(url, https, dialog, search) {
             dialog.alert({ title: 'Atención', message: 'Debe seleccionar los filtros obligatorios para consultar presupuesto:<br><br>' + obligatorios });
             return null;
         }
+        */
 
         var restletUrl = url.resolveScript({
             scriptId: 'customscript_2win_rl_obt_presupuestos',
@@ -249,11 +251,13 @@ function(url, https, dialog, search) {
 
                 filtros.push({ id: fieldId, valor: currentRecord.getValue(fieldId) });
 
-            } else if (String(currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId })).length > 0 
+            } 
+            /*
+            else if (String(currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId })).length > 0 
                         && currentRecord.getCurrentSublistText({ sublistId: sublistName, fieldId: fieldId }) != undefined) {
 
                 filtros.push({ id: fieldId, valor: currentRecord.getCurrentSublistValue({ sublistId: sublistName, fieldId: fieldId }) });
-            }
+            }*/
         }
 
         log.debug('obtenerFiltrosBusqueda', filtros);
