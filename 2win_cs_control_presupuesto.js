@@ -8,6 +8,9 @@ function(url, https, dialog, search) {
 
     var parametros_control = null;
     var presupuestos = [];
+    var cuentas_agrupadas_str = '';
+    var formulario_id = 0;
+    var formulario_especial = false;
 
     function pageInit(context) {
         
@@ -15,6 +18,17 @@ function(url, https, dialog, search) {
 
         //@TODO: Cargar presupuestos existentes.
         presupuestos = [];
+
+        cuentas_agrupadas = [];
+
+        if (formulario_id == 0) {
+            var currentRecord = context.currentRecord;
+            formulario_id = currentRecord.getValue('customform');
+        }
+        
+        // Función que permite saber si el flujo será Estándar o Especial de acuerdo al formulario seleccionado.
+        log.debug('pageInit', 'Form Id: ' + formulario_id);
+        establecerVariableFormularioEspecial(formulario_id);
     }
 
     function saveRecord(context) {
@@ -27,6 +41,56 @@ function(url, https, dialog, search) {
 
     function fieldChanged(context) {
 
+        var currentRecord = context.currentRecord;
+
+        // Obtener id selección de tipo de formulario.
+        if (context.fieldId == 'customform') {
+
+            // Establecer nuevo id de formulario si el usuario cambia opción.
+            log.debug('fieldChanged', 'fieldId: ' + context.fieldId);
+            formulario_id = currentRecord.getValue('customform');
+        
+        } else {
+
+            // Si el formulario es especial realizamos la obteneción de valores de presupuesto
+            // antes de agregar línes de gastos.
+            if (formulario_especial 
+                    && (context.fieldId == 'subsidiary' 
+                        || context.fieldId == 'department' 
+                        || context.fieldId == 'class' 
+                        || context.fieldId == 'location')) {
+
+                // Obtener presupuesto de flujo especial.
+                // Acción se realiza solo si están seleccionados todos los filtros.
+                var presupuesto_especial = obtenerPresupuestosEspecial(currentRecord);
+
+                if (presupuesto_especial != null) {
+
+                    // Presupuesto Mensual
+                    var presupuesto_mensual = presupuesto_especial.importe_mensual;
+                    log.debug('fieldChanged', 'Presupuesto Mensual (Search): ' + presupuesto_mensual);
+
+                    // Presupuesto Acumulado (Presupuesto Mensual * Mes Actual)
+                    var mes_actual = new Date().getMonth() + 1;
+                    var presupuesto_acumulado = presupuesto_mensual * mes_actual;
+                    log.debug('fieldChanged', 'Presupuesto Acumulado (Presupuesto Mensual * Mes Actual): ' + presupuesto_acumulado);
+
+                    // Gasto Acumulado
+                    var gasto_acumulado = presupuesto_especial.importe_acumulado;
+                    log.debug('fieldChanged', 'Gasto Acumulado (Search): ' + gasto_acumulado);
+
+                    // Presupuesto Disponible = (Presupuesto Acumulado - Gasto Acumulado)
+                    var presupuesto_disponible = presupuesto_acumulado - gasto_acumulado;
+                    log.debug('fieldChanged', 'Presupuesto Disponible (Presupuesto Acumulado - Gasto Acumulado): ' + presupuesto_disponible);
+
+                    // Establecer valores de totales en formulario.
+                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: presupuesto_mensual }); // Presupuesto Mensual
+                    currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: presupuesto_acumulado }); // Presupuesto Acumulado
+                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: gasto_acumulado }); // Gasto Acumulado
+                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto_disponible }); // Presupuesto Disponible
+                }
+            }
+        }
     }
 
     function postSourcing(context) {
@@ -46,6 +110,8 @@ function(url, https, dialog, search) {
 
         // Si es el último registro existente se resetean totales y listas.
         if (presupuestos.length == 1) {
+
+            //@TODO: Relaizar flujo para caso especial.
 
             // Establecer nuevos valores de totales en formulario.
             currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: '' }); // Presupuesto Mensual
@@ -80,7 +146,7 @@ function(url, https, dialog, search) {
             var total_disponible = currentRecord.getValue('custbody_2win_presupuesto_disponible'); // Presupuesto Disponible
 
             // Si presupuesto eliminado no existe con misma cuenta debo restarlo a totales.
-            if (obtenerPresupuestoPorCuenta(presupuesto.cuenta) == null) {
+            if (formulario_especial == false && obtenerPresupuestoPorCuenta(presupuesto.cuenta) == null) {
                 total_mensual -= presupuesto.mensual;
                 total_acumulado -= presupuesto.acumulado;
                 total_gasto -= presupuesto.gasto;
@@ -117,12 +183,9 @@ function(url, https, dialog, search) {
         var monto_estimado = currentRecord.getCurrentSublistValue({ sublistId: sublistId, fieldId: 'estimatedamount' });
         log.debug('validateLine', 'Monto Estimado: ' + monto_estimado);
 
-        // Corresponde al monto de todos los items más el nuevo monto agregado en la línea.
-        //var total_estimado = currentRecord.getValue('estimatedtotal') + monto_estimado;
-        //log.debug('validateLine', 'Total Estimado: ' + total_estimado);
-
-        // Obtener montos de presupesto desde Restlet.
-        var presupuesto = obtenerPresupuestos(currentRecord, sublistId);
+        // Obtener montos de presupesto desde Restlet 
+        // de acuerdo al tipo de formulario (Estándar/Especial).
+        var presupuesto = formulario_especial ? obtenerPresupuestosEspecial(currentRecord) : obtenerPresupuestos(currentRecord, sublistId);
 
         if (presupuesto != null) {
 
@@ -180,13 +243,32 @@ function(url, https, dialog, search) {
         pageInit: pageInit,
         //saveRecord: saveRecord,
         //validateField: validateField,
-        //fieldChanged: fieldChanged,
+        fieldChanged: fieldChanged,
         //postSourcing: postSourcing,
         //lineInit: lineInit,
         validateDelete: validateDelete,
         //validateInsert: validateInsert,
         validateLine: validateLine,
         //sublistChanged: sublistChanged
+    }
+
+    /**
+     * @description Función que permite saber si el flujo será Estándar o Especial de acuerdo al tipo de formulario seleccionado.
+     * @param {Int} id_formulario 
+     */
+    function establecerVariableFormularioEspecial(id_formulario) {
+
+        // Obtener cuentas agrupadas para control presupuestario especial.
+        var cuentas_agrupadas = obtenerAgrupacionControlPresupuestario(id_formulario);
+        log.debug('establecerVariableFormularioEspecial', cuentas_agrupadas);
+
+        // Establecer variable global para calcular presupuesto.
+        formulario_especial = cuentas_agrupadas.length > 0;
+        log.debug('establecerVariableFormularioEspecial', 'formulario_especial: ' + formulario_especial);
+
+        // Transformar lista de cuentas agrupadas en string separado por commas.
+        cuentas_agrupadas_str = cuentas_agrupadas.map(function(cuenta) { return cuenta.id }).toString();
+        log.debug('establecerVariableFormularioEspecial', cuentas_agrupadas_str);
     }
 
     function establecerPresupuestosTotales(presupuesto, currentRecord) {
@@ -216,7 +298,7 @@ function(url, https, dialog, search) {
             }           
 
             // Verificar si existe el presupuesto con misma cuenta, si NO existe se debe aumentar presupuestos.
-            if (obtenerPresupuestoPorCuenta(presupuesto.cuenta) == null) {
+            if (formulario_especial == false && obtenerPresupuestoPorCuenta(presupuesto.cuenta) == null) {
                 total_mensual += presupuesto_ex.mensual;
                 total_acumulado += presupuesto_ex.acumulado;
                 total_gasto += presupuesto_ex.gasto;
@@ -270,51 +352,15 @@ function(url, https, dialog, search) {
         return null;
     }
 
-    function obtenerTotalItems(currentRecord) {
-
-        var total = 0;
-
-        var numItemsLines = currentRecord.getLineCount({ sublistId : 'item' });
-        log.debug('obtenerTotalItems', 'numItemsLines: ' + numItemsLines);
-        if (numItemsLines > 0) {
-            for (var i = 0; i < numItemsLines; i++) {
-                var currentRecordLine = currentRecord.selectLine({ sublistId: 'item', line: i });
-                var estimado = currentRecordLine.getCurrentSublistValue({ sublistId: 'item', fieldId: 'estimatedamount' });
-                total += parseInt(estimado);
-            }
-        }
-
-        var numExpensesLines = currentRecord.getLineCount({ sublistId : 'expense' });
-        log.debug('obtenerTotalItems', 'numExpensesLines: ' + numExpensesLines);
-        if (numExpensesLines > 0) {
-            for (var i = 0; i < numExpensesLines; i++) {
-                var currentRecordLine = currentRecord.selectLine({ sublistId: 'expense', line: i });
-                var estimado = currentRecordLine.getCurrentSublistValue({ sublistId: 'expense', fieldId: 'estimatedamount' });
-                total += parseInt(estimado);
-            }
-        }
-
-        return total;
-    }
-
+    /**
+     * @description Función encargada de obtener presupuestos desde Restlet para flujo estándar
+     * @param {Record} currentRecord 
+     * @param {String} sublistName 
+     */
     function obtenerPresupuestos(currentRecord, sublistName) {
 
         // Obtener filtros para obtener el presupuesto.
         var filtros = obtenerFiltrosBusqueda(currentRecord, sublistName, parametros_control);
-
-        // Validar que parámetros de control presupuestario y filtros sean iguales para poder obtener el presupuesto.
-        /*
-        if (parametros_control.length != filtros.length) {
-
-            var obligatorios = "";
-            parametros_control.forEach(function(param) {
-                obligatorios += "- " + param.name + "<br>";
-            });
-
-            dialog.alert({ title: 'Atención', message: 'Debe seleccionar los filtros obligatorios para consultar presupuesto:<br><br>' + obligatorios });
-            return null;
-        }
-        */
 
         var restletUrl = url.resolveScript({
             scriptId: 'customscript_2win_rl_obt_presupuestos',
@@ -349,7 +395,64 @@ function(url, https, dialog, search) {
         } else {
 
             log.debug('obtenerPresupuestos', response);
-            dialog.alert({ title: 'Error', message: 'Ocurrión un error al obtener el presupuesto.' });
+            dialog.alert({ title: 'Error', message: 'Ocurrión un error al obtener el presupuesto flujo estándar.' });
+            return null;
+        }
+        
+    }
+
+    /**
+     * @description Función encargada de obtener presupuestos desde Restlet para flujo especial
+     * @param {Record} currentRecord 
+     */
+    function obtenerPresupuestosEspecial(currentRecord) {
+
+        // Obtener filtros para obtener el presupuesto.
+        var filtros = obtenerFiltrosBusquedaEspecial(currentRecord, parametros_control);
+
+        // Verificar si están todos los filtros seleccionados.
+        if (parametros_control.length != filtros.length) {
+            return null;
+        }
+
+        // Agregamos nuevos filtros para flujo especial.
+        filtros.push({ id: 'customform', valor: formulario_id });
+        filtros.push({ id: 'accounts', valor: cuentas_agrupadas_str });
+
+        var restletUrl = url.resolveScript({
+            scriptId: 'customscript_2win_rl_obt_presupuestos_es',
+            deploymentId: 'customdeploy_2win_rl_obt_presupuestos_es'
+        });
+        
+        // Agregar filtros obligatorios a la Url del Restlet
+        filtros.forEach(function(filtro) {
+            restletUrl += "&" + filtro.id + "=" + filtro.valor;
+        });
+ 
+        log.debug('obtenerPresupuestosEspecial', restletUrl);
+
+        var response = https.get({
+            url: restletUrl,
+            headers: { "Content-Type": "application/json" }
+        });
+
+        if (response.code == 200) { // Si respuesta es OK
+
+            var body = JSON.parse(response.body);
+
+            log.debug('obtenerPresupuestosEspecial', body);
+
+            if (body.message) {
+                dialog.alert({ title: 'Error!', message: body.message });
+                return null;
+            } else {
+                return JSON.parse(response.body);
+            }
+
+        } else {
+
+            log.debug('obtenerPresupuestosEspecial', response);
+            dialog.alert({ title: 'Error', message: 'Ocurrión un error al obtener el presupuesto flujo especial.' });
             return null;
         }
         
@@ -386,6 +489,31 @@ function(url, https, dialog, search) {
     }
 
     /**
+     * @description Función que permite crear filtros dinámicos para las búsquedas del flujo especial.
+     * @param {Record} currentRecord 
+     * @param {String} sublistName 
+     * @param {Array} parametros 
+     */
+    function obtenerFiltrosBusquedaEspecial(currentRecord, parametros) {
+
+        var filtros = [{ id: 'account', valor: '' }];
+
+        for (var i = 0; i < parametros.length; i++) {
+
+            var fieldId = parametros[i].campo;
+            
+            if (String(currentRecord.getValue(fieldId)).length > 0 && currentRecord.getText(fieldId) != undefined) {
+
+                filtros.push({ id: fieldId, valor: currentRecord.getValue(fieldId) });
+            }
+        }
+
+        log.debug('obtenerFiltrosBusquedaEspecial', filtros);
+
+        return filtros;
+    }
+
+    /**
      * @description Obtiene parámetros de control presupuestario dese tabla customrecord_2win_parametros_control_pre.
      */
     function obtenerParametrosControlPresupuestario() {
@@ -400,6 +528,25 @@ function(url, https, dialog, search) {
                 ],
             filters: [
                 ["custrecord_2win_verificacion","is","T"]
+            ]
+        }
+        
+        return getDataSearch(tabItem);
+    }
+
+    /**
+     * @description Obtiene agrupación de control presupuestario dese tabla customrecord_2win_agrupacion_control_pto.
+     */
+    function obtenerAgrupacionControlPresupuestario(id_formulario) {
+
+        var tabItem = {
+            type: "customrecord_2win_agrupacion_control_pto",
+            columns:
+                [
+                    search.createColumn({ name: "internalid", join: "CUSTRECORD_2WIN_CUENTAS_AGRUPADAS", label: "id"})
+                ],
+            filters: [
+                ["name","haskeywords",id_formulario]
             ]
         }
         
