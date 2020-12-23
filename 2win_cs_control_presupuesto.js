@@ -53,42 +53,14 @@ function(url, https, dialog, search) {
         } else {
 
             // Si el formulario es especial realizamos la obteneción de valores de presupuesto
-            // antes de agregar línes de gastos.
+            // y seteamos montos de presupeusto en formulario antes de agregar línes de gastos.
             if (formulario_especial 
                     && (context.fieldId == 'subsidiary' 
                         || context.fieldId == 'department' 
                         || context.fieldId == 'class' 
                         || context.fieldId == 'location')) {
 
-                // Obtener presupuesto de flujo especial.
-                // Acción se realiza solo si están seleccionados todos los filtros.
-                var presupuesto_especial = obtenerPresupuestosEspecial(currentRecord);
-
-                if (presupuesto_especial != null) {
-
-                    // Presupuesto Mensual
-                    var presupuesto_mensual = presupuesto_especial.importe_mensual;
-                    log.debug('fieldChanged', 'Presupuesto Mensual (Search): ' + presupuesto_mensual);
-
-                    // Presupuesto Acumulado (Presupuesto Mensual * Mes Actual)
-                    var mes_actual = new Date().getMonth() + 1;
-                    var presupuesto_acumulado = presupuesto_mensual * mes_actual;
-                    log.debug('fieldChanged', 'Presupuesto Acumulado (Presupuesto Mensual * Mes Actual): ' + presupuesto_acumulado);
-
-                    // Gasto Acumulado
-                    var gasto_acumulado = presupuesto_especial.importe_acumulado;
-                    log.debug('fieldChanged', 'Gasto Acumulado (Search): ' + gasto_acumulado);
-
-                    // Presupuesto Disponible = (Presupuesto Acumulado - Gasto Acumulado)
-                    var presupuesto_disponible = presupuesto_acumulado - gasto_acumulado;
-                    log.debug('fieldChanged', 'Presupuesto Disponible (Presupuesto Acumulado - Gasto Acumulado): ' + presupuesto_disponible);
-
-                    // Establecer valores de totales en formulario.
-                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: presupuesto_mensual }); // Presupuesto Mensual
-                    currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: presupuesto_acumulado }); // Presupuesto Acumulado
-                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: gasto_acumulado }); // Gasto Acumulado
-                    currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto_disponible }); // Presupuesto Disponible
-                }
+                establecerPresupuestoInicialEspecial(currentRecord);
             }
         }
     }
@@ -111,13 +83,19 @@ function(url, https, dialog, search) {
         // Si es el último registro existente se resetean totales y listas.
         if (presupuestos.length == 1) {
 
-            //@TODO: Relaizar flujo para caso especial.
+            if (formulario_especial) {
 
-            // Establecer nuevos valores de totales en formulario.
-            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: '' }); // Presupuesto Mensual
-            currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: '' }); // Presupuesto Acumulado
-            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: '' }); // Gasto Acumulado
-            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: '' }); // Presupuesto Disponible
+                // Establecer totales en formulario con valores iniciales.
+                establecerPresupuestoInicialEspecial(currentRecord);
+
+            } else {
+
+                // Establecer totales en formulario sin valores.
+                currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: '' }); // Presupuesto Mensual
+                currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: '' }); // Presupuesto Acumulado
+                currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: '' }); // Gasto Acumulado
+                currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: '' }); // Presupuesto Disponible
+            }
 
             // Limpiar lista de presupuestos.
             presupuestos = [];
@@ -323,6 +301,43 @@ function(url, https, dialog, search) {
         // Solo agrego presupuesto a la lista cuando no existe, de lo contrario está editando el registro.
         if (!existe_presupuesto) {
             presupuestos.push(presupuesto);
+        }
+    }
+
+    /**
+     * @description Función que establece valores de presupuesto inicial para flujo especial.
+     * @param {Record} currentRecord 
+     */
+    function establecerPresupuestoInicialEspecial(currentRecord) {
+
+        // Obtener presupuesto de flujo especial.
+        // Acción se realiza solo si están seleccionados todos los filtros.
+        var presupuesto_especial = obtenerPresupuestosEspecial(currentRecord);
+
+        if (presupuesto_especial != null) {
+
+            // Presupuesto Mensual
+            var presupuesto_mensual = presupuesto_especial.importe_mensual;
+            log.debug('establecerPresupuestoInicialEspecial', 'Presupuesto Mensual (Search): ' + presupuesto_mensual);
+
+            // Presupuesto Acumulado (Presupuesto Mensual * Mes Actual)
+            var mes_actual = new Date().getMonth() + 1;
+            var presupuesto_acumulado = presupuesto_mensual * mes_actual;
+            log.debug('establecerPresupuestoInicialEspecial', 'Presupuesto Acumulado (Presupuesto Mensual * Mes Actual): ' + presupuesto_acumulado);
+
+            // Gasto Acumulado
+            var gasto_acumulado = presupuesto_especial.importe_acumulado;
+            log.debug('establecerPresupuestoInicialEspecial', 'Gasto Acumulado (Search): ' + gasto_acumulado);
+
+            // Presupuesto Disponible = (Presupuesto Acumulado - Gasto Acumulado)
+            var presupuesto_disponible = presupuesto_acumulado - gasto_acumulado;
+            log.debug('establecerPresupuestoInicialEspecial', 'Presupuesto Disponible (Presupuesto Acumulado - Gasto Acumulado): ' + presupuesto_disponible);
+
+            // Establecer valores de totales en formulario.
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: presupuesto_mensual }); // Presupuesto Mensual
+            currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: presupuesto_acumulado }); // Presupuesto Acumulado
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: gasto_acumulado }); // Gasto Acumulado
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto_disponible }); // Presupuesto Disponible
         }
     }
 
