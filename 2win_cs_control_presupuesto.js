@@ -2,9 +2,9 @@
  *@NApiVersion 2.0
  *@NScriptType ClientScript
  */
-define(['N/url', 'N/https', 'N/ui/dialog', 'N/search'], 
+define(['N/url', 'N/https', 'N/ui/dialog', 'N/search', './libs/moment.min'], 
 
-function(url, https, dialog, search) {
+function(url, https, dialog, search, moment) {
 
     var parametros_control = null;
     var presupuestos = [];
@@ -481,7 +481,10 @@ function(url, https, dialog, search) {
      */
     function obtenerFiltrosBusqueda(currentRecord, sublistName, parametros) {
 
-        var filtros = [];
+        var fecha = moment(currentRecord.getValue('trandate')).format('DD/MM/YYYY');
+        log.debug('obtenerFiltrosBusqueda', fecha);
+
+        var filtros = [{ id: 'trandate', valor: fecha }];
 
         for (var i = 0; i < parametros.length; i++) {
 
@@ -510,8 +513,11 @@ function(url, https, dialog, search) {
      * @param {Array} parametros 
      */
     function obtenerFiltrosBusquedaEspecial(currentRecord, parametros) {
+        
+        var fecha = moment(currentRecord.getValue('trandate')).format('DD/MM/YYYY');
+        log.debug('obtenerFiltrosBusquedaEspecial', fecha);
 
-        var filtros = [{ id: 'account', valor: '' }];
+        var filtros = [{ id: 'account', valor: '' }, { id: 'trandate', valor: fecha }];
 
         for (var i = 0; i < parametros.length; i++) {
 

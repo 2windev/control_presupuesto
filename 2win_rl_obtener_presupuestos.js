@@ -56,8 +56,11 @@ function(search) {
 
         try {
 
+            var anio = obtenerIdAnioCurso(context.trandate);
+            log.debug('obtenerPresupuestoAnual', 'Año en curso: ' + anio);
+
             var filters = [ 
-                ["year", "anyof", 172]
+                ["year", "anyof", anio]
             ];
 
             if (context.subsidiary) {
@@ -182,6 +185,45 @@ function(search) {
             
         } catch (error) {
             log.error({ title: 'obtenerPresupuestoAcumulado', details: JSON.stringify(error) });
+            throw new Error(error);
+        }
+    }
+
+    function obtenerIdAnioCurso(fecha) {
+
+        try {
+
+            var filters = [ 
+                ["startdate", "onorbefore", fecha], 
+                "AND", 
+                ["enddate", "onorafter", fecha],
+                "AND", 
+                ["isyear", "is", "T"]
+            ];
+    
+            var tabItem = {
+                type: "accountingperiod",
+                filters: filters,
+                columns:
+                [
+                    search.createColumn({ name: "internalid", label: "internalid"}),
+                    search.createColumn({ name: "periodname", sort: search.Sort.ASC, label: "Name" }),
+                    search.createColumn({ name: "startdate", label: "Start Date"}),
+                    search.createColumn({ name: "enddate", label: "End Date"}),
+                    search.createColumn({ name: "isyear", label: "Year"}),
+                    search.createColumn({ name: "isquarter", label: "Quarter"})
+                ] 
+            }
+    
+            var results = getDataSearch(tabItem);
+            if (results.length > 0) {
+                return results[0].internalid;
+            } else {
+                throw new Error("No se encontraron resultados para obtener año en curso")
+            }
+            
+        } catch (error) {
+            log.error({ title: 'obtenerIdAnioCurso', details: JSON.stringify(error) });
             throw new Error(error);
         }
     }
