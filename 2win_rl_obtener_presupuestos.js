@@ -14,6 +14,7 @@ function(search) {
             
             // Obtener presupesuto mensual.
             var anual = obtenerPresupuestoAnual(context);
+            log.debug('obtenerPresupuestoAnual', anual);
             var importe_anual = parseInt(anual.importe);
             var importe_mensual = importe_anual / 12;
 

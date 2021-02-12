@@ -128,10 +128,15 @@ function(url, https, dialog, search, moment) {
                 total_mensual -= presupuesto.mensual;
                 total_acumulado -= presupuesto.acumulado;
                 total_gasto -= presupuesto.gasto;
-            }
 
-            // Realizar nuevo cálculo del total disponible.
-            total_disponible = total_disponible + presupuesto.transaccion;
+                total_disponible = total_disponible - (total_acumulado - total_gasto - presupuesto.transaccion);
+                
+            } else {
+
+                // Realizar nuevo cálculo del total disponible.
+                total_disponible = total_disponible + presupuesto.transaccion;
+            }
+            
             log.debug('validateDelete', 'Nuevo Total Disponible: ' + total_disponible);
 
             // Establecer nuevos valores de totales en formulario.
@@ -172,6 +177,16 @@ function(url, https, dialog, search, moment) {
 
             var cuenta = currentRecord.getCurrentSublistValue({ sublistId: sublistId, fieldId: 'account' });
             log.debug('validateLine', 'Cuenta: ' + cuenta);
+
+            if (cuenta == null || cuenta == "" || cuenta == undefined) {
+                log.debug('validateLine', 'Cuenta no existe');
+                var item = currentRecord.getCurrentSublistValue({ sublistId: sublistId, fieldId: 'item' });
+                log.debug('validateLine', 'Item: ' + item);
+                if (item != null && item != "" && item != undefined) {
+                    cuenta = obtenerCuenta(item).cuenta;
+                    log.debug('validateLine', 'Cuenta (Search): ' + cuenta);
+                }
+            }
 
             // Presupuesto Mensual
             var presupuesto_mensual = presupuesto.importe_mensual;
@@ -253,34 +268,61 @@ function(url, https, dialog, search, moment) {
 
         log.debug('establecerPresupuestosTotales', presupuesto);
 
-        var total_mensual = presupuesto.mensual;
-        var total_acumulado = presupuesto.acumulado;
-        var total_gasto = presupuesto.gasto;
-        var total_transaccion = presupuesto.transaccion;
+        var total_mensual = 0;
+        var total_acumulado = 0;
+        var total_gasto = 0;
+        var total_transaccion = 0;
 
         // Verificar si el presupuesto existe con el mismo id o índice.
-        var existe_presupuesto = existePresupuesto(presupuesto);
-        log.debug('establecerPresupuestosTotales', 'Existe Presupuesto: ' + existe_presupuesto);
+        var es_edicion = existePresupuesto(presupuesto);
+        log.debug('establecerPresupuestosTotales', 'Existe Presupuesto (Edición): ' + es_edicion);
 
+        if (es_edicion) {
+            
+            // Si existe, lo reemplazo para calcular
+            presupuestos[presupuesto.id] = presupuesto;
+
+        } else {
+
+            // Si no existe, lo agrego a la lista para calcular
+            presupuestos.push(presupuesto);
+        }
+
+        // Calcular totales de transacción
         for (var i = 0; i < presupuestos.length; i++) {
 
             var presupuesto_ex = presupuestos[i];
             log.debug('establecerPresupuestosTotales ' + i, presupuesto_ex);
             
-            if (existe_presupuesto) { 
-                // Si el presupuesto existe, es decir que fue editado lo reemplazo en la lista de presupuestos
-                presupuestos[i] = presupuesto;
-            } else {
-                // Si el presupuesto NO existe, solo aumento el total de trx ya que se asume que es registro nuevo.
-                total_transaccion += presupuesto_ex.transaccion;
-            }           
+            // Aumento el total de transacción.
+            total_transaccion += presupuesto_ex.transaccion;
+        }
 
-            // Verificar si existe el presupuesto con misma cuenta, si NO existe se debe aumentar presupuestos.
-            if (formulario_especial == false && obtenerPresupuestoPorCuenta(presupuesto.cuenta) == null) {
-                total_mensual += presupuesto_ex.mensual;
-                total_acumulado += presupuesto_ex.acumulado;
-                total_gasto += presupuesto_ex.gasto;
+        if (formulario_especial == false) {
+
+            // Obtener presupuestos agrupados por cuentas.
+            var presupuestos_cuentas = Array.from(
+                new Set(presupuestos.map(function(psto) { return psto.cuenta } ))
+            ).map(function(cuenta) {
+                return presupuestos.find(function(psto) { return psto.cuenta == cuenta })
+            });
+
+            log.debug('establecerPresupuestosTotales - presupuestos_cuentas', presupuestos_cuentas);
+            
+            // Aumentar totales de presupuestos para cuentas distintas.
+            for (var i = 0; i < presupuestos_cuentas.length; i++) {
+                var presupuesto_cuenta = presupuestos[i];
+                total_mensual += presupuesto_cuenta.mensual;
+                total_acumulado += presupuesto_cuenta.acumulado;
+                total_gasto += presupuesto_cuenta.gasto;
             }
+
+        } else {
+
+            // Si es formulario especial toma el presupuesto actual.
+            total_mensual = presupuesto.mensual;
+            total_acumulado = presupuesto.acumulado;
+            total_gasto = presupuesto.gasto;
         }
 
         // Realizar cálculo del total disponible.
@@ -297,11 +339,6 @@ function(url, https, dialog, search, moment) {
         currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: total_acumulado }); // Presupuesto Acumulado
         currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: total_gasto }); // Gasto Acumulado
         currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: total_disponible }); // Presupuesto Disponible
-
-        // Solo agrego presupuesto a la lista cuando no existe, de lo contrario está editando el registro.
-        if (!existe_presupuesto) {
-            presupuestos.push(presupuesto);
-        }
     }
 
     /**
@@ -355,6 +392,8 @@ function(url, https, dialog, search, moment) {
     }
 
     function obtenerPresupuestoPorCuenta(cuenta) {
+
+        log.debug('obtenerPresupuestoPorCuenta', cuenta);
 
         for (var i = 0; i < presupuestos.length; i++) {
 
@@ -572,6 +611,31 @@ function(url, https, dialog, search, moment) {
         }
         
         return getDataSearch(tabItem);
+    }
+
+    /**
+     * @description 
+     */
+    function obtenerCuenta(id) {
+
+        var tabItem = {
+            type: "item",
+            columns:
+                [
+                    search.createColumn({name: "expenseaccount", label: "cuenta"})
+                ],
+            filters: [
+                ["internalid","anyof",id]
+            ]
+        }
+
+        var results = getDataSearch(tabItem);
+
+        if (results.length > 0) {
+            return results[0];
+        } else {
+            log.error('obtenerCuenta', 'No se encontraron cuentas para el id: ' + id);
+        }
     }
 
     /**
