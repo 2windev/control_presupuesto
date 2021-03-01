@@ -455,6 +455,17 @@ function(url, https, dialog, search, moment) {
         
     }
 
+    function validarFiltrosObligatoriosEspecial(currentRecord) {
+
+        if (String(currentRecord.getValue('subsidiary')).length > 0 && currentRecord.getText('subsidiary') != undefined
+            && String(currentRecord.getValue('department')).length > 0 && currentRecord.getText('department') != undefined
+            && String(currentRecord.getValue('class')).length > 0 && currentRecord.getText('class') != undefined
+            && String(currentRecord.getValue('location')).length > 0 && currentRecord.getText('location') != undefined) {
+            return true;
+        }
+        return false;
+    }
+
     /**
      * @description Función encargada de obtener presupuestos desde Restlet para flujo especial
      * @param {Record} currentRecord 
@@ -465,7 +476,12 @@ function(url, https, dialog, search, moment) {
         var filtros = obtenerFiltrosBusquedaEspecial(currentRecord, parametros_control);
 
         // Verificar si están todos los filtros seleccionados.
+        /*
         if (parametros_control.length != filtros.length) {
+            return null;
+        }
+        */
+        if (!validarFiltrosObligatoriosEspecial(currentRecord)) {
             return null;
         }
 

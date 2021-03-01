@@ -53,3 +53,7 @@
         ... Id del formulario.
         - custrecord_2win_cuentas_agrupadas
         ... Cuentas asociadas al formulario.
+
+- Librerías externas
+
+    - [moment.min.js](lib/moment.min.js)
