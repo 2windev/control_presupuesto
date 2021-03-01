@@ -56,4 +56,4 @@
 
 - Librerías externas
 
-    - [moment.min.js](lib/moment.min.js)
+    - [moment.min.js](libs/moment.min.js)
