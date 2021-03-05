@@ -14,12 +14,16 @@ function(search) {
             
             // Obtener presupesuto mensual.
             var anual = obtenerPresupuestoAnual(context);
-            var importe_anual = parseInt(anual.importe);
-            var importe_mensual = importe_anual / 12;
+            anual.importe = parseFloat(anual.importe); // parseFloat para retornos .00
+            log.debug('GET - obtenerPresupuestoAnual', anual.importe);
+
+            var importe_anual = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? parseInt(anual.importe) : 0;
+            var importe_mensual = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? (importe_anual / 12) : 0;
 
             // Obtener presupuesto acumulado.
             var acumulado = obtenerPresupuestoAcumulado(context);
-            var importe_acumulado = acumulado.importe != "" ? parseInt(acumulado.importe) : 0;
+            acumulado.importe = parseFloat(acumulado.importe);
+            var importe_acumulado = (acumulado.importe != null && acumulado.importe != "" && acumulado.importe != "NaN") ? parseInt(acumulado.importe) : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
             log.debug('GET', result);
@@ -83,9 +87,23 @@ function(search) {
                 filters.push(["location", "anyof", context.location]);
             }
 
-            if (context.accounts) {
-                filters.push("AND");
-                filters.push(["account", "anyof", context.accounts]);
+            if (context.accounts && context.accounts.indexOf(',') > 0) {
+
+                var accounts_arr = context.accounts.split(',');
+                log.debug('obtenerPresupuestoAnual - accounts_arr', accounts_arr);
+                if (accounts_arr.length > 0) {
+
+                    var accounts_fil = ["account", "anyof"];
+                    accounts_arr.forEach(function(account_id) {
+                        accounts_fil.push(account_id);
+                    });
+
+                    log.debug('obtenerPresupuestoAnual - accounts_fil', accounts_fil);
+                    
+                    filters.push("AND");
+                    filters.push(accounts_fil);
+                }
+                
             }
 
             log.debug('obtenerPresupuestoAnual', filters);

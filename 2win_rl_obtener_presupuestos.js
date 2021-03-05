@@ -14,13 +14,16 @@ function(search) {
             
             // Obtener presupesuto mensual.
             var anual = obtenerPresupuestoAnual(context);
-            log.debug('obtenerPresupuestoAnual', anual);
-            var importe_anual = parseInt(anual.importe);
-            var importe_mensual = importe_anual / 12;
+            lanual.importe = parseFloat(anual.importe); // parseFloat para retornos .00
+            log.debug('GET - obtenerPresupuestoAnual', anual.importe);
+
+            var importe_anual = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? parseInt(anual.importe) : 0;
+            var importe_mensual = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? (importe_anual / 12) : 0;
 
             // Obtener presupuesto acumulado.
             var acumulado = obtenerPresupuestoAcumulado(context);
-            var importe_acumulado = acumulado.importe != "" ? parseInt(acumulado.importe) : 0;
+            acumulado.importe = parseFloat(acumulado.importe);
+            var importe_acumulado = (acumulado.importe != null && acumulado.importe != "" && acumulado.importe != "NaN") ? parseInt(acumulado.importe) : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
             log.debug('GET', result);

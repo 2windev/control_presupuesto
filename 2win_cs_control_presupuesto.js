@@ -29,6 +29,12 @@ function(url, https, dialog, search, moment) {
         // Función que permite saber si el flujo será Estándar o Especial de acuerdo al formulario seleccionado.
         log.debug('pageInit', 'Form Id: ' + formulario_id);
         establecerVariableFormularioEspecial(formulario_id);
+
+        // Si el formulario es especial realizamos la obteneción de valores de presupuesto al iniciar.
+        if (formulario_especial) {
+
+            establecerPresupuestoInicialEspecial(currentRecord);
+        }
     }
 
     function saveRecord(context) {
@@ -482,6 +488,7 @@ function(url, https, dialog, search, moment) {
         }
         */
         if (!validarFiltrosObligatoriosEspecial(currentRecord)) {
+            log.debug('obtenerPresupuestosEspecial', 'Faltan filtros obligatorios');
             return null;
         }
 
