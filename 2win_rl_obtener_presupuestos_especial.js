@@ -14,7 +14,7 @@ function(search) {
             
             // Obtener presupesuto mensual.
             var anual = obtenerPresupuestoAnual(context);
-            anual.importe = parseFloat(anual.importe); // parseFloat para retornos .00
+            anual.importe = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? parseFloat(anual.importe) : 0; // parseFloat para retornos .00
             log.debug('GET - obtenerPresupuestoAnual', anual.importe);
 
             var importe_anual = (anual.importe != null && anual.importe != "" && anual.importe != "NaN") ? parseInt(anual.importe) : 0;
@@ -22,7 +22,8 @@ function(search) {
 
             // Obtener presupuesto acumulado.
             var acumulado = obtenerPresupuestoAcumulado(context);
-            acumulado.importe = parseFloat(acumulado.importe);
+            acumulado.importe = (acumulado.importe != null && acumulado.importe != "" && acumulado.importe != "NaN") ? parseFloat(acumulado.importe) : 0;
+            log.debug('GET - obtenerPresupuestoAcumulado', acumulado.importe);
             var importe_acumulado = (acumulado.importe != null && acumulado.importe != "" && acumulado.importe != "NaN") ? parseInt(acumulado.importe) : 0;
 
             var result = { "importe_anual": importe_anual, "importe_mensual": importe_mensual, "importe_acumulado": importe_acumulado };
@@ -62,9 +63,13 @@ function(search) {
 
             var anio = obtenerIdAnioCurso(context.trandate);
             log.debug('obtenerPresupuestoAnual', 'Año en curso: ' + anio);
+            var categoria = obtenerParametroCategoria();
+            log.debug('obtenerPresupuestoAnual', 'Categoria: ' + categoria);
 
             var filters = [ 
-                ["year", "anyof", anio]
+                ["year", "anyof", anio],
+                "AND",
+                ["category", "anyof", categoria]
             ];
 
             if (context.subsidiary) {
@@ -226,6 +231,30 @@ function(search) {
         } catch (error) {
             log.error({ title: 'obtenerIdAnioCurso', details: JSON.stringify(error) });
             throw new Error(error);
+        }
+    }
+
+    function obtenerParametroCategoria() {
+
+        var tabItem = {
+            type: "customrecord_2win_parametros_control_pre",
+            columns:
+                [
+                    search.createColumn({ name: "internalid", label: "internalid" }),
+                    search.createColumn({ name: "name", label: "name" }),
+                    search.createColumn({ name: "custrecord_2win_categoria_presupuesto", label: "id" })
+                ],
+            filters: [
+                ["name","is","Categoría"]
+            ]
+        }
+
+        var results = getDataSearch(tabItem);
+        if (results.length > 0) {
+            log.debug('obtenerParametroCategoria', results[0])
+            return results[0].id;
+        } else {
+            throw new Error("No se encontraro parámetro de control 'Categoría'")
         }
     }
 

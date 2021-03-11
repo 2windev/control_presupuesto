@@ -15,6 +15,7 @@ function(url, https, dialog, search, moment) {
     function pageInit(context) {
         
         parametros_control = obtenerParametrosControlPresupuestario();
+        log.debug('parametros_control', parametros_control);
 
         //@TODO: Cargar presupuestos existentes.
         presupuestos = [];
@@ -33,7 +34,7 @@ function(url, https, dialog, search, moment) {
         // Si el formulario es especial realizamos la obteneción de valores de presupuesto al iniciar.
         if (formulario_especial) {
 
-            establecerPresupuestoInicialEspecial(currentRecord);
+            establecerPresupuestoInicialEspecial(context.currentRecord);
         }
     }
 
@@ -610,7 +611,9 @@ function(url, https, dialog, search, moment) {
                     search.createColumn({ name: "custrecord_2win_campo", label: "campo" })
                 ],
             filters: [
-                ["custrecord_2win_verificacion","is","T"]
+                ["custrecord_2win_verificacion","is","T"],
+                "AND", 
+                ["custrecord_2win_campo","isnotempty",""]
             ]
         }
         
