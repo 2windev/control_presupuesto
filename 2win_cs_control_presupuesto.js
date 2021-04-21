@@ -39,11 +39,11 @@ function(url, https, dialog, search, moment) {
     }
 
     function saveRecord(context) {
-        
+        log.debug('saveRecord', context);
     }
 
     function validateField(context) {
-
+        log.debug('validateField', context);
     }
 
     function fieldChanged(context) {
@@ -73,11 +73,11 @@ function(url, https, dialog, search, moment) {
     }
 
     function postSourcing(context) {
-        
+        log.debug('postSourcing', context);
     }
 
     function lineInit(context) {
-        
+        log.debug('lineInit', context);
     }
 
     function validateDelete(context) {
@@ -107,7 +107,7 @@ function(url, https, dialog, search, moment) {
             // Limpiar lista de presupuestos.
             presupuestos = [];
 
-        } else {
+        } else if (presupuestos.length > 1) {
 
             // Obtener index del elemento que se está eliminando.
             var index = currentRecord.getCurrentSublistIndex({ sublistId: sublistId });
@@ -158,7 +158,7 @@ function(url, https, dialog, search, moment) {
     }
 
     function validateInsert(context) {
-
+        log.debug('validateInsert', context);
     }
 
     function validateLine(context) {
@@ -234,9 +234,86 @@ function(url, https, dialog, search, moment) {
         }
     }
 
+    var sublistIdTmp = "";
     function sublistChanged(context) {
-        log.debug('sublistChanged', context);
-        log.debug('sublistChanged', context.operation);
+
+        var currentRecord = context.currentRecord;
+        var sublistId = context.sublistId;
+        
+        if (sublistId != sublistIdTmp) {
+
+            log.debug('sublistChanged', context);
+
+            validateMultipleLines(currentRecord, sublistId);
+
+            sublistIdTmp = sublistId;
+        }
+    }
+
+    function validateMultipleLines(currentRecord, sublistId) {
+
+        var numLines = currentRecord.getLineCount({ sublistId: sublistId });
+        log.debug('validateMultipleLines', "LineCount: " + numLines);
+
+        var presupuesto = obtenerPresupuestosEspecial(currentRecord);
+
+        if (presupuesto != null) {
+
+            var suma_monto_estimado = 0;
+        
+            for (var index = 0; index < numLines; index++) {
+
+                log.debug('validateMultipleLines', 'Index: ' + index);
+    
+                var item = currentRecord.getSublistValue({ sublistId: sublistId, fieldId: 'item', line: index });
+                log.debug('validateMultipleLines', 'Item: ' + item);
+    
+                var cuenta = currentRecord.getSublistValue({ sublistId: sublistId, fieldId: 'account', line: index });
+                log.debug('validateMultipleLines', 'Cuenta: ' + cuenta);
+    
+                if (cuenta == null || cuenta == "" || cuenta == undefined) {
+                    log.debug('validateMultipleLines', 'Cuenta No Existe');
+    
+                    if (item != null && item != "" && item != undefined) {
+                        cuenta = obtenerCuenta(item).cuenta;
+                        log.debug('validateMultipleLines', 'Cuenta (Search): ' + cuenta);
+                    }
+                }
+    
+                // Corresponde Monto Estimado Transacción agregado en la línea
+                var monto_estimado = currentRecord.getSublistValue({ sublistId: sublistId, fieldId: 'estimatedamount', line: index });
+                log.debug('validateMultipleLines', 'Monto Estimado: ' + monto_estimado);
+
+                suma_monto_estimado += monto_estimado;
+            }
+
+            // Presupuesto Mensual
+            var presupuesto_mensual = presupuesto.importe_mensual;
+            log.debug('validateMultipleLines', 'Presupuesto Mensual (Search): ' + presupuesto_mensual);
+
+            // Presupuesto Acumulado (Presupuesto Mensual * Mes Actual)
+            var mes_actual = new Date().getMonth() + 1;
+            var presupuesto_acumulado = presupuesto_mensual * mes_actual;
+            log.debug('validateMultipleLines', 'Presupuesto Acumulado (Presupuesto Mensual * Mes Actual): ' + presupuesto_acumulado);
+
+            // Gasto Acumulado
+            var gasto_acumulado = presupuesto.importe_acumulado;
+            log.debug('validateMultipleLines', 'Gasto Acumulado (Search): ' + gasto_acumulado);
+
+            // Suma Monto Estimado
+            log.debug('validateMultipleLines', 'Suma Monto Estimado: ' + suma_monto_estimado);
+
+            // Presupuesto Disponible = (Presupuesto Acumulado - Gasto Acumulado - Suma Monto Estimado Transacción)
+            var presupuesto_disponible = presupuesto_acumulado - gasto_acumulado - suma_monto_estimado;
+            log.debug('validateMultipleLines', 'Presupuesto Disponible (Presupuesto Acumulado - Gasto Acumulado - Suma Monto Estimado Transacción): ' + presupuesto_disponible);
+
+            // Establecer valores de totales en formulario.
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_mensual', value: presupuesto_mensual }); // Presupuesto Mensual
+            currentRecord.setValue({ fieldId: 'custbody_2win_pres_mensual_acumulado', value: presupuesto_acumulado }); // Presupuesto Acumulado
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_acumulado', value: gasto_acumulado }); // Gasto Acumulado
+            currentRecord.setValue({ fieldId: 'custbody_2win_presupuesto_disponible', value: presupuesto_disponible }); // Presupuesto Disponible
+        }
+
     }
 
     return {
@@ -249,7 +326,7 @@ function(url, https, dialog, search, moment) {
         validateDelete: validateDelete,
         //validateInsert: validateInsert,
         validateLine: validateLine,
-        //sublistChanged: sublistChanged
+        sublistChanged: sublistChanged
     }
 
     /**
